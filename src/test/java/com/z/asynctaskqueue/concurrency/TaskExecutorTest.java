@@ -12,6 +12,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -86,7 +87,7 @@ class TaskExecutorTest {
     @Test
     void workerConsumesTask_writesResultAndMarksSuccess() throws Exception {
         Task task = save(newTask("exec-success", TaskStatus.QUEUED));
-        LocalDateTime startedBefore = LocalDateTime.now();
+        LocalDateTime startedBefore = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
 
         assertTrue(queue.offer(task), "task must be accepted by the queue");
 

@@ -34,6 +34,11 @@ public interface TaskRepository extends JpaRepository<Task, String> {
     int markQueuedFromPending(@Param("taskId") String taskId, @Param("enqueuedAt") LocalDateTime enqueuedAt);
 
     @Modifying
+    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.PENDING, t.enqueuedAt = null " +
+           "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.QUEUED")
+    int revertToPending(@Param("taskId") String taskId);
+
+    @Modifying
     @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.QUEUED, t.enqueuedAt = :enqueuedAt " +
            "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.RETRY_WAITING AND t.nextRetryAt <= :now")
     int markQueuedFromRetryWaiting(@Param("taskId") String taskId, @Param("enqueuedAt") LocalDateTime enqueuedAt, @Param("now") LocalDateTime now);

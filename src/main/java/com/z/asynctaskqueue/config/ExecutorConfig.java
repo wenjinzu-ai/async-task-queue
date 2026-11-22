@@ -1,6 +1,7 @@
 package com.z.asynctaskqueue.config;
 
 import com.z.asynctaskqueue.concurrency.BoundedPriorityBlockingQueue;
+import com.z.asynctaskqueue.concurrency.TaskDispatcher;
 import com.z.asynctaskqueue.concurrency.TaskExecutor;
 import com.z.asynctaskqueue.concurrency.TaskHandler;
 import com.z.asynctaskqueue.domain.Task;
@@ -31,6 +32,14 @@ public class ExecutorConfig {
                                    AsyncTaskProperties properties,
                                    PlatformTransactionManager transactionManager) {
         return new TaskHandler(taskRepository, taskResultRepository, properties, transactionManager);
+    }
+
+    @Bean
+    public TaskDispatcher taskDispatcher(BoundedPriorityBlockingQueue<Task> taskQueue,
+                                         TaskRepository taskRepository,
+                                         AsyncTaskProperties properties,
+                                         PlatformTransactionManager transactionManager) {
+        return new TaskDispatcher(taskQueue, taskRepository, properties, transactionManager);
     }
 
     @Bean(initMethod = "start", destroyMethod = "stop")
