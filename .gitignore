@@ -1,6 +1,10 @@
 HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
+
+### Async Task Queue runtime ###
+*.log
+data/
 !**/src/main/**/target/
 !**/src/test/**/target/
 

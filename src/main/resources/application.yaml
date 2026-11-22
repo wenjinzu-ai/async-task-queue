@@ -1,3 +1,46 @@
 spring:
   application:
     name: async-task-queue
+  datasource:
+    url: jdbc:h2:file:./data/async-task;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+  sql:
+    init:
+      mode: always
+
+async-task:
+  submit:
+    allow-resubmit-when-final: false
+  queue:
+    capacity: 2000
+    coefficient: 100
+    min-capacity: 500
+    max-capacity: 10000
+    adaptive: false
+    backpressure: REJECT
+    offer-timeout-ms: 50
+  executor:
+    core-pool-size: 8
+    max-pool-size: 8
+    thread-name-prefix: task-worker
+  retry:
+    max-retry: 3
+    base-backoff-ms: 1000
+    max-backoff-ms: 60000
+    jitter: true
+    scheduler-pool-size: 2
+  handler:
+    call-timeout-ms: 90000
+  heartbeat:
+    interval-ms: 30000
+    timeout-ms: 120000
+  cleanup:
+    result-retention-days: 30
+  shutdown:
+    await-termination-ms: 30000
