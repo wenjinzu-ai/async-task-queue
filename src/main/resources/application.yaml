@@ -37,6 +37,9 @@ async-task:
     scheduler-pool-size: 2
   handler:
     call-timeout-ms: 90000
+    simulate-min-ms: 3000
+    simulate-max-ms: 30000
+    simulate-seed: 0
   heartbeat:
     interval-ms: 30000
     timeout-ms: 120000

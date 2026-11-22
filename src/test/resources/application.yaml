@@ -11,3 +11,14 @@ spring:
   sql:
     init:
       mode: always
+
+async-task:
+  executor:
+    core-pool-size: 2
+    max-pool-size: 2
+  handler:
+    call-timeout-ms: 5000
+    simulate-min-ms: 30
+    simulate-max-ms: 80
+  heartbeat:
+    interval-ms: 20

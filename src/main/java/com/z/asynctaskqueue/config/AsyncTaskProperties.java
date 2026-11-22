@@ -96,8 +96,18 @@ public class AsyncTaskProperties {
 
     public static class Handler {
         private long callTimeoutMs = 90000;
+        private long simulateMinMs = 3000;
+        private long simulateMaxMs = 30000;
+        private long simulateSeed = 0;
+
         public long getCallTimeoutMs() { return callTimeoutMs; }
         public void setCallTimeoutMs(long callTimeoutMs) { this.callTimeoutMs = callTimeoutMs; }
+        public long getSimulateMinMs() { return simulateMinMs; }
+        public void setSimulateMinMs(long simulateMinMs) { this.simulateMinMs = simulateMinMs; }
+        public long getSimulateMaxMs() { return simulateMaxMs; }
+        public void setSimulateMaxMs(long simulateMaxMs) { this.simulateMaxMs = simulateMaxMs; }
+        public long getSimulateSeed() { return simulateSeed; }
+        public void setSimulateSeed(long simulateSeed) { this.simulateSeed = simulateSeed; }
     }
 
     public static class Heartbeat {
