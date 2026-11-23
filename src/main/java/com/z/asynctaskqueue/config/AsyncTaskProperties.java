@@ -45,6 +45,9 @@ public class AsyncTaskProperties {
         private boolean adaptive = false;
         private String backpressure = "REJECT";
         private long offerTimeoutMs = 50;
+        private long refillerIntervalMs = 500;
+        private int refillerBatchSize = 50;
+        private long tunerIntervalMs = 10000;
 
         public int getCapacity() { return capacity; }
         public void setCapacity(int capacity) { this.capacity = capacity; }
@@ -60,6 +63,12 @@ public class AsyncTaskProperties {
         public void setBackpressure(String backpressure) { this.backpressure = backpressure; }
         public long getOfferTimeoutMs() { return offerTimeoutMs; }
         public void setOfferTimeoutMs(long offerTimeoutMs) { this.offerTimeoutMs = offerTimeoutMs; }
+        public long getRefillerIntervalMs() { return refillerIntervalMs; }
+        public void setRefillerIntervalMs(long refillerIntervalMs) { this.refillerIntervalMs = refillerIntervalMs; }
+        public int getRefillerBatchSize() { return refillerBatchSize; }
+        public void setRefillerBatchSize(int refillerBatchSize) { this.refillerBatchSize = refillerBatchSize; }
+        public long getTunerIntervalMs() { return tunerIntervalMs; }
+        public void setTunerIntervalMs(long tunerIntervalMs) { this.tunerIntervalMs = tunerIntervalMs; }
     }
 
     public static class Executor {
@@ -113,10 +122,13 @@ public class AsyncTaskProperties {
     public static class Heartbeat {
         private long intervalMs = 30000;
         private long timeoutMs = 120000;
+        private long scanIntervalMs = 10000;
         public long getIntervalMs() { return intervalMs; }
         public void setIntervalMs(long intervalMs) { this.intervalMs = intervalMs; }
         public long getTimeoutMs() { return timeoutMs; }
         public void setTimeoutMs(long timeoutMs) { this.timeoutMs = timeoutMs; }
+        public long getScanIntervalMs() { return scanIntervalMs; }
+        public void setScanIntervalMs(long scanIntervalMs) { this.scanIntervalMs = scanIntervalMs; }
     }
 
     public static class Cleanup {

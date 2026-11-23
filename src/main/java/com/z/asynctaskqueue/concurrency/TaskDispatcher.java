@@ -47,6 +47,24 @@ public class TaskDispatcher {
         return EnqueueOutcome.REJECTED;
     }
 
+    public EnqueueOutcome enqueueFromRetryWaiting(Task task) {
+        LocalDateTime now = LocalDateTime.now();
+        int updated = transactionTemplate.execute(
+                s -> taskRepository.markQueuedFromRetryWaiting(task.getTaskId(), now, now));
+        if (updated != 1) {
+            return EnqueueOutcome.ALREADY_QUEUED;
+        }
+        if (doOffer(task)) {
+            return EnqueueOutcome.ENQUEUED;
+        }
+        // The guard flipped RETRY_WAITING -> QUEUED, but the offer lost the race to a full queue.
+        // Revert to RETRY_WAITING (keeping nextRetryAt) so the scheduler picks it up again next tick,
+        // preserving the non-loss invariant symmetric to the PENDING path.
+        transactionTemplate.executeWithoutResult(s -> taskRepository.revertQueuedToRetryWaiting(task.getTaskId()));
+        log.debug("task {} backpressured on retry release, reverted to RETRY_WAITING", task.getTaskId());
+        return EnqueueOutcome.REJECTED;
+    }
+
     private boolean doOffer(Task task) {
         try {
             return queue.offer(task, offerTimeoutMs, TimeUnit.MILLISECONDS);
@@ -62,5 +80,17 @@ public class TaskDispatcher {
 
     public int remainingCapacity() {
         return queue.remainingCapacity();
+    }
+
+    public EnqueueOutcome requeueQueued(Task task) {
+        if (doOffer(task)) {
+            return EnqueueOutcome.ENQUEUED;
+        }
+        // Recovery path: the row is QUEUED on disk but the in-memory reference was lost (crash).
+        // If the queue is still full, revert to PENDING so QueueRefiller picks it up later instead
+        // of leaving a QUEUED row with no in-memory reference (non-loss invariant, SDD 6.7).
+        transactionTemplate.executeWithoutResult(s -> taskRepository.revertToPending(task.getTaskId()));
+        log.debug("task {} could not be requeued, reverted QUEUED -> PENDING", task.getTaskId());
+        return EnqueueOutcome.REJECTED;
     }
 }

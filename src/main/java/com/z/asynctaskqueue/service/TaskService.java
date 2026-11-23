@@ -98,6 +98,24 @@ public class TaskService {
         return SubmitResponse.of(task.getTaskId(), TaskStatus.PENDING);
     }
 
+    public TaskStatus replayDeadLetter(String taskId) {
+        Task task = tx(s -> taskRepository.findById(taskId))
+                .orElseThrow(() -> new BusinessException(ErrorCode.TASK_NOT_FOUND,
+                        "task not found: " + taskId, taskId));
+        if (task.getStatus() != TaskStatus.DEAD_LETTER) {
+            throw new BusinessException(ErrorCode.TASK_STATE_CONFLICT,
+                    "task is not in DEAD_LETTER state: " + task.getStatus(), taskId);
+        }
+        int reset = tx(s -> taskRepository.replayDeadLetter(taskId));
+        if (reset != 1) {
+            throw new BusinessException(ErrorCode.TASK_STATE_CONFLICT,
+                    "task state changed concurrently, cannot replay", taskId);
+        }
+        Task reloaded = tx(s -> taskRepository.findById(taskId)).orElseThrow();
+        EnqueueOutcome outcome = dispatcher.enqueueFromPending(reloaded);
+        return outcome == EnqueueOutcome.REJECTED ? TaskStatus.PENDING : TaskStatus.QUEUED;
+    }
+
     private Task buildTask(SubmitRequest request, String bizKey) {
         LocalDateTime now = LocalDateTime.now();
         Task task = new Task();

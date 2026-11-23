@@ -2,6 +2,7 @@ package com.z.asynctaskqueue.concurrency;
 
 import com.z.asynctaskqueue.domain.PriorityAware;
 
+import java.time.LocalDateTime;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,18 +18,52 @@ import java.util.concurrent.locks.ReentrantLock;
 public class BoundedPriorityBlockingQueue<E extends PriorityAware> implements BlockingQueue<E> {
 
     private final Object[] heap;
-    private final int capacity;
+    private final int maxCapacity;
+    private volatile int capacity;
     private int size;
     private final ReentrantLock lock = new ReentrantLock();
     private final Condition notEmpty = lock.newCondition();
     private final Condition notFull = lock.newCondition();
 
     public BoundedPriorityBlockingQueue(int capacity) {
-        if (capacity <= 0) {
-            throw new IllegalArgumentException("capacity must be positive: " + capacity);
+        this(capacity, capacity);
+    }
+
+    public BoundedPriorityBlockingQueue(int initialCapacity, int maxCapacity) {
+        if (initialCapacity <= 0) {
+            throw new IllegalArgumentException("initial capacity must be positive: " + initialCapacity);
         }
-        this.capacity = capacity;
-        this.heap = new Object[capacity];
+        if (maxCapacity < initialCapacity) {
+            throw new IllegalArgumentException("max capacity must be >= initial capacity: " + maxCapacity);
+        }
+        this.maxCapacity = maxCapacity;
+        this.capacity = initialCapacity;
+        this.heap = new Object[maxCapacity];
+    }
+
+    public int currentCapacity() {
+        return capacity;
+    }
+
+    public int maxCapacity() {
+        return maxCapacity;
+    }
+
+    public boolean setCapacity(int newCapacity) {
+        if (newCapacity <= 0 || newCapacity > maxCapacity) {
+            return false;
+        }
+        lock.lock();
+        try {
+            int old = this.capacity;
+            this.capacity = newCapacity;
+            if (newCapacity > old) {
+                notFull.signalAll();
+            }
+            return true;
+        } finally {
+            lock.unlock();
+        }
     }
 
     private int compare(E a, E b) {
@@ -36,7 +71,18 @@ public class BoundedPriorityBlockingQueue<E extends PriorityAware> implements Bl
         if (cmp != 0) {
             return cmp;
         }
-        return a.getCreatedAt().compareTo(b.getCreatedAt());
+        LocalDateTime ca = a.getCreatedAt();
+        LocalDateTime cb = b.getCreatedAt();
+        if (ca == null && cb == null) {
+            return 0;
+        }
+        if (ca == null) {
+            return 1;
+        }
+        if (cb == null) {
+            return -1;
+        }
+        return ca.compareTo(cb);
     }
 
     private void siftUp(int i) {
@@ -112,7 +158,7 @@ public class BoundedPriorityBlockingQueue<E extends PriorityAware> implements Bl
         checkNotNull(e);
         lock.lock();
         try {
-            if (size == capacity) {
+            if (size >= capacity) {
                 return false;
             }
             insert(e);
@@ -128,7 +174,7 @@ public class BoundedPriorityBlockingQueue<E extends PriorityAware> implements Bl
         long nanos = unit.toNanos(timeout);
         lock.lockInterruptibly();
         try {
-            while (size == capacity) {
+            while (size >= capacity) {
                 if (nanos <= 0) {
                     return false;
                 }
@@ -146,7 +192,7 @@ public class BoundedPriorityBlockingQueue<E extends PriorityAware> implements Bl
         checkNotNull(e);
         lock.lockInterruptibly();
         try {
-            while (size == capacity) {
+            while (size >= capacity) {
                 notFull.await();
             }
             insert(e);
@@ -245,7 +291,7 @@ public class BoundedPriorityBlockingQueue<E extends PriorityAware> implements Bl
     public int remainingCapacity() {
         lock.lock();
         try {
-            return capacity - size;
+            return Math.max(0, capacity - size);
         } finally {
             lock.unlock();
         }

@@ -23,6 +23,7 @@ public class TaskExecutor {
     private final BoundedPriorityBlockingQueue<Task> queue;
     private final TaskHandler taskHandler;
     private final TaskRepository taskRepository;
+    private final TaskFailureHandler failureHandler;
     private final TransactionTemplate transactionTemplate;
     private final int corePoolSize;
     private final String threadNamePrefix;
@@ -38,11 +39,13 @@ public class TaskExecutor {
     public TaskExecutor(BoundedPriorityBlockingQueue<Task> queue,
                         TaskHandler taskHandler,
                         TaskRepository taskRepository,
+                        TaskFailureHandler failureHandler,
                         AsyncTaskProperties properties,
                         PlatformTransactionManager transactionManager) {
         this.queue = queue;
         this.taskHandler = taskHandler;
         this.taskRepository = taskRepository;
+        this.failureHandler = failureHandler;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.corePoolSize = Math.max(1, properties.getExecutor().getCorePoolSize());
         this.threadNamePrefix = properties.getExecutor().getThreadNamePrefix();
@@ -118,9 +121,15 @@ public class TaskExecutor {
             }
             taskHandler.handle(task);
         } catch (Exception e) {
-            // Failure state transition (RETRY_WAITING / FAILED / DEAD_LETTER) is wired in ATQ-016.
-            // For now keep the worker alive; the task stays PROCESSING and is recovered by heartbeat timeout.
             log.error("task {} failed during handling", task.getTaskId(), e);
+            try {
+                failureHandler.handleFailure(task, e);
+            } catch (RuntimeException fe) {
+                // A failure in the transition itself must not kill the worker; the task stays
+                // PROCESSING and will be recovered by heartbeat timeout (ATQ-019).
+                log.error("task {} failure transition itself failed; leaving for heartbeat recovery",
+                        task.getTaskId(), fe);
+            }
         }
     }
 

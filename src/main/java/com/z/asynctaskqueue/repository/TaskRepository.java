@@ -21,6 +21,8 @@ public interface TaskRepository extends JpaRepository<Task, String> {
 
     List<Task> findByStatus(TaskStatus status);
 
+    List<Task> findTop50ByStatusOrderByFinishedAtDesc(TaskStatus status);
+
     List<Task> findByStatusAndNextRetryAtBefore(TaskStatus status, LocalDateTime before);
 
     List<Task> findByStatusAndHeartbeatAtBefore(TaskStatus status, LocalDateTime before);
@@ -29,55 +31,71 @@ public interface TaskRepository extends JpaRepository<Task, String> {
     List<Object[]> countGroupByStatus();
 
     @Modifying
-    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.QUEUED, t.enqueuedAt = :enqueuedAt " +
+    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.QUEUED, t.enqueuedAt = :enqueuedAt, t.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.PENDING")
     int markQueuedFromPending(@Param("taskId") String taskId, @Param("enqueuedAt") LocalDateTime enqueuedAt);
 
     @Modifying
-    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.PENDING, t.enqueuedAt = null " +
+    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.PENDING, t.enqueuedAt = null, t.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.QUEUED")
     int revertToPending(@Param("taskId") String taskId);
 
     @Modifying
-    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.QUEUED, t.enqueuedAt = :enqueuedAt " +
+    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.QUEUED, t.enqueuedAt = :enqueuedAt, t.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.RETRY_WAITING AND t.nextRetryAt <= :now")
     int markQueuedFromRetryWaiting(@Param("taskId") String taskId, @Param("enqueuedAt") LocalDateTime enqueuedAt, @Param("now") LocalDateTime now);
 
     @Modifying
-    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.PROCESSING, t.startedAt = :startedAt, t.heartbeatAt = :startedAt " +
+    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.PROCESSING, t.startedAt = :startedAt, t.heartbeatAt = :startedAt, t.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.QUEUED")
     int markProcessing(@Param("taskId") String taskId, @Param("startedAt") LocalDateTime startedAt);
 
     @Modifying
-    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.SUCCESS, t.finishedAt = :finishedAt " +
+    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.SUCCESS, t.finishedAt = :finishedAt, t.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.PROCESSING")
     int markSuccess(@Param("taskId") String taskId, @Param("finishedAt") LocalDateTime finishedAt);
 
     @Modifying
     @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.RETRY_WAITING, " +
-           "t.retryCount = t.retryCount + 1, t.failReason = :failReason, t.nextRetryAt = :nextRetryAt " +
+           "t.retryCount = t.retryCount + 1, t.failReason = :failReason, t.nextRetryAt = :nextRetryAt, t.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.PROCESSING")
     int markRetryWaiting(@Param("taskId") String taskId, @Param("failReason") String failReason, @Param("nextRetryAt") LocalDateTime nextRetryAt);
 
     @Modifying
     @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.DEAD_LETTER, " +
-           "t.retryCount = t.retryCount + 1, t.failReason = :failReason, t.finishedAt = :finishedAt " +
+           "t.retryCount = t.retryCount + 1, t.failReason = :failReason, t.finishedAt = :finishedAt, t.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.PROCESSING")
     int markDeadLetter(@Param("taskId") String taskId, @Param("failReason") String failReason, @Param("finishedAt") LocalDateTime finishedAt);
 
     @Modifying
-    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.FAILED, t.failReason = :failReason, t.finishedAt = :finishedAt " +
+    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.FAILED, t.failReason = :failReason, t.finishedAt = :finishedAt, t.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.PROCESSING")
     int markFailed(@Param("taskId") String taskId, @Param("failReason") String failReason, @Param("finishedAt") LocalDateTime finishedAt);
 
     @Modifying
-    @Query("UPDATE Task t SET t.heartbeatAt = :now " +
+    @Query("UPDATE Task t SET t.heartbeatAt = :now, t.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.PROCESSING")
     int refreshHeartbeat(@Param("taskId") String taskId, @Param("now") LocalDateTime now);
 
     @Modifying
     @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.RETRY_WAITING, " +
-           "t.failReason = 'heartbeat_timeout', t.retryCount = t.retryCount + 1, t.nextRetryAt = :now " +
+           "t.failReason = 'heartbeat_timeout', t.retryCount = t.retryCount + 1, t.nextRetryAt = :now, t.updatedAt = CURRENT_TIMESTAMP " +
            "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.PROCESSING AND t.heartbeatAt < :threshold")
     int recoverHeartbeatTimeout(@Param("taskId") String taskId, @Param("now") LocalDateTime now, @Param("threshold") LocalDateTime threshold);
+
+    @Modifying
+    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.RETRY_WAITING, t.enqueuedAt = null, t.updatedAt = CURRENT_TIMESTAMP " +
+           "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.QUEUED")
+    int revertQueuedToRetryWaiting(@Param("taskId") String taskId);
+
+    List<Task> findByStatusAndFinishedAtBefore(TaskStatus status, LocalDateTime before);
+
+    List<Task> findByStatusAndFinishedAtAfter(TaskStatus status, LocalDateTime after);
+
+    @Modifying
+    @Query("UPDATE Task t SET t.status = com.z.asynctaskqueue.domain.TaskStatus.PENDING, " +
+           "t.failReason = null, t.retryCount = 0, t.nextRetryAt = null, t.finishedAt = null, " +
+           "t.enqueuedAt = null, t.startedAt = null, t.heartbeatAt = null, t.updatedAt = CURRENT_TIMESTAMP " +
+           "WHERE t.taskId = :taskId AND t.status = com.z.asynctaskqueue.domain.TaskStatus.DEAD_LETTER")
+    int replayDeadLetter(@Param("taskId") String taskId);
 }

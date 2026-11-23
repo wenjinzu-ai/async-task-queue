@@ -186,4 +186,48 @@ class BoundedPriorityBlockingQueueTest {
         assertEquals(2, q.size());
         assertEquals(3, out.size());
     }
+
+    @Test
+    void setCapacity_scaleUpAllowsMoreOffers() {
+        BoundedPriorityBlockingQueue<Item> q = new BoundedPriorityBlockingQueue<>(2, 8);
+        assertTrue(q.offer(item("a", 1)));
+        assertTrue(q.offer(item("b", 1)));
+        assertFalse(q.offer(item("c", 1)), "full at initial capacity");
+
+        assertTrue(q.setCapacity(5));
+        assertEquals(5, q.currentCapacity());
+        assertEquals(3, q.remainingCapacity());
+        assertTrue(q.offer(item("c", 1)));
+        assertEquals(3, q.size());
+    }
+
+    @Test
+    void setCapacity_scaleDownDoesNotEvictElements() {
+        BoundedPriorityBlockingQueue<Item> q = new BoundedPriorityBlockingQueue<>(8, 8);
+        for (int i = 0; i < 6; i++) {
+            q.offer(item("s" + i, i));
+        }
+        assertTrue(q.setCapacity(3));
+        assertEquals(3, q.currentCapacity());
+        assertEquals(6, q.size(), "scale-down must not evict already-buffered elements");
+        assertFalse(q.offer(item("overflow", 1)), "no new offers while size exceeds new capacity");
+        assertEquals(0, q.remainingCapacity());
+
+        assertNotNull(q.poll());
+        assertNotNull(q.poll());
+        assertNotNull(q.poll());
+        assertEquals(3, q.size());
+        assertFalse(q.offer(item("still-full", 1)), "size still equals new capacity, still full");
+        assertNotNull(q.poll());
+        assertTrue(q.offer(item("now-fits", 1)), "after draining below new capacity, offers resume");
+    }
+
+    @Test
+    void setCapacity_rejectsOutOfRange() {
+        BoundedPriorityBlockingQueue<Item> q = new BoundedPriorityBlockingQueue<>(4, 10);
+        assertFalse(q.setCapacity(0));
+        assertFalse(q.setCapacity(-1));
+        assertFalse(q.setCapacity(11), "cannot exceed maxCapacity");
+        assertEquals(4, q.currentCapacity());
+    }
 }
